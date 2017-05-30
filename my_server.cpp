@@ -1,0 +1,244 @@
+#include <stdio.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
+#include <ctype.h>
+#include <strings.h>
+#include <string.h>
+#include <sys/stat.h>
+//#include <pthread.h>
+#include <sys/wait.h>
+#include <stdlib.h>
+#include <io.h> 
+#include <stdint.h>
+
+
+int HandleConnect(int fd);
+int ParseReq(FILE *f,char *r);  
+int PrintHeader(FILE *f,char *r);
+int DoDir(FILE *f,char *name);
+int DoHTML(FILE *f,char *name);
+int DoText(FILE *f,char *name);
+int DoJpeg(FILE *f,char *name);
+int DoGif(FILE *f,char *name); 
+
+
+
+char Refferer[256]; 
+/**
+*客户连接处理：
+*函数名：int HandleConnect(int fd)
+*参数：客户连接文件描述字
+*/
+int HandleConnect(int fd){
+	int client = fd;
+	FILE *file;
+	
+	char request_type[255];
+	int numchars;
+	char buf[1024];
+	char method[255];
+	char *query_string = NULL;
+		
+	
+	//1、获取Refferer变量并赋值给全局变量
+	//2、获取content_length字段信息
+	//1,2暂时不做，因为似乎没意义 ,获取content_type更有意义 
+	numchars = get_line(client, buf, sizeof(buf));
+    i = 0; j = 0;
+    while (!ISspace(buf[i]) && (i < sizeof(method) - 1))
+    {
+        method[i] = buf[i];
+        i++;
+    }
+    j=i;
+    method[i] = '\0';
+
+    i = 0;
+    while (ISspace(buf[j]) && (j < numchars))
+        j++;
+    while (!ISspace(buf[j]) && (i < sizeof(url) - 1) && (j < numchars))
+    {
+        url[i] = buf[j];
+        i++; j++;
+    }
+    url[i] = '\0';
+	  
+	file = fdopen(client,r); //得到文件描述符，以只读方式打开 
+	
+	ParseReq(file,url); 
+	fclose(file);
+	
+	
+}
+
+/**
+*解析客户请求：
+函数名：int ParseReq(FILE *f, char *r)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。
+参数 2：字符串指针，待解析的字符串。
+*/
+int ParseReq(FILE *f,char *r){
+	char pathname[521] = ".";
+	pathname = strcat(path,r);
+	char tmp[255];
+	char html[10];
+	char jpg_or_gif[10]
+	
+	strncpy(html, r+(strlen(r)-5), 5); 
+    string[5] = '\0';
+    strncpy(jpg_or_gif,r+(strlen(r)-4),4);
+    string[4] = '\0';
+    
+    FILE destFile = fopen(pathname,)
+	if(r[strlen(r)-1] == '/') {  			//输出目录 
+		if(access(strcat(pathname,"index.html"),0){ 	//判断是否存在index.html 
+			DoHtml(f,strcat(pathname,"index.html"));
+			return 1;
+		}    
+		DoDir(f,pathname);
+	}  else if(strcasecmp(jpg_or_gif,".jpg")==0){
+		DoJpeg(f,pathname);
+	} else if (strcasecmp(jpg_or_gif,".gif")==0){
+		DoGif(f,pathname);
+	}else if (strcasecmp(html,".html")==0)  {  //输出html文件 
+		DoHTML(f,pathname);
+	} else{
+		DoText(f,pathname);
+	} 
+	return 1;
+}
+
+/*
+发送 HTTP 协议数据头：
+函数名：int PrintHeader(FILE *f, int content_type)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。用于写入 HTTP
+协议数据头信息。
+参数 2：信息类型，用于确定发送的 HTTP 协议数据头信息。
+
+*/
+int PrintHeader(FILE *f,char *r){
+    fprintf(f,"HTTP/1.0 200 OK\n")
+    switch (*r)
+	{
+	case 't':
+	fprintf(f,"Content-type: text/plain\n");
+	break;
+	case 'g':
+	fprintf(f,"Content-type: image/gif\n");
+	BREAK;
+	case 'j':
+	fprintf(f,"Content-type: image/jpeg\n");
+	break;
+	case 'h':
+	fprintf(f,"Content-type: text/html\n");
+	break;
+	}
+	//发送服务器信息：
+	fprintf(f,"Server: AMRLinux-httpd 0.2.4\n");
+	//发送文件过期为永不过期：
+	fprintf(f,"Expires: 0\n");
+}
+
+/*
+发送当前目录文件列表信息：
+函数名：int DoDir(FILE *f, char *name)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。用于写入目录文件信息
+数据。
+参数 2：目录名，表示客户请求的目录信息。
+*/
+int DoDir(FILE *f,char *name){
+	
+}
+
+/*发送 HTML 文件内容：
+函数名：int DoHTML(FILE *f, char *name)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。写入文件信息数据。
+参数 2：客户请求的文件名。
+*/
+
+int DoHTML(FILE *f,char *name){
+	
+	FILE *resource = NULL;
+    char buf[1024];
+    buf[0] = 'A'; buf[1] = '\0';
+
+	int client = fileno(f);    //把文件指针转换为套接字，方便利用httpd.c的函数 
+    resource = fopen(name, "r");
+    if (resource == NULL)
+        //not_found(client);
+    else
+    {
+        PrintHeader(f, 'h');
+        fgets(buf, sizeof(buf), resource);
+	    while (!feof(resource))
+	    {
+	    	fprintf(f,buf);
+	        fgets(buf, sizeof(buf), resource);
+	    }
+    }
+    fclose(resource);
+}
+
+/*
+发送纯文本（TXT）文件内容：
+函数名：int DoText(FILE *f, char *name)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。用于写入文件信息数据。
+参数 2：客户请求的文件名。
+*/
+int DoText(FILE *f,char *name){
+	
+}
+
+/*
+发送 Jpeg 图像文件内容：
+函数名：int DoJpeg(FILE *f, char *name)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。用于写入文件信息数据。
+参数 2：客户请求的文件名
+*/
+
+int DoJpeg(FILE *f,char *name){
+	
+}
+
+/*
+发送 GIF 图像文件内容：
+函数名：int DoGif(FILE *f, char *name)
+参数 1：文件流 FILE 结构指针，用于表示客户连接的文件流指针。用于写入文件信息数据。
+参数 2：客户请求的文件名。
+*/
+int DoGif(FILE *f,char *name){
+	
+}
+
+
+
+
+int main(void)
+{
+    int server_sock = -1;
+    u_short port = 4000;
+    int client_sock = -1;
+    struct sockaddr_in client_name;
+    socklen_t  client_name_len = sizeof(client_name);
+    server_sock = startup(&port);
+    printf("httpd running on port %d\n", port);
+
+    while (1)
+    {
+        client_sock = accept(server_sock,
+                (struct sockaddr *)&client_name,
+                &client_name_len);
+        if (client_sock == -1)
+            error_die("accept");
+            HandleConnect(client_sock); 
+        //accept_request(&client_sock); 
+       
+    }
+
+    close(server_sock);
+
+    return(0);
+}
