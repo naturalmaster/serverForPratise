@@ -213,8 +213,68 @@ int DoGif(FILE *f,char *name){
 	
 }
 
+int startup(u_short *port)
+{
+    int httpd = 0;
+    int on = 1;
+    struct sockaddr_in name;
 
+    httpd = socket(PF_INET, SOCK_STREAM, 0);
+    if (httpd == -1)
+        error_die("socket");
+    memset(&name, 0, sizeof(name));
+    name.sin_family = AF_INET;
+    name.sin_port = htons(*port);
+    name.sin_addr.s_addr = htonl(INADDR_ANY);
+    if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)  
+    {  
+        error_die("setsockopt failed");
+    }
+    if (bind(httpd, (struct sockaddr *)&name, sizeof(name)) < 0)
+        error_die("bind");
+    if (*port == 0)  /* if dynamically allocating a port */
+    {
+        socklen_t namelen = sizeof(name);
+        if (getsockname(httpd, (struct sockaddr *)&name, &namelen) == -1)
+            error_die("getsockname");
+        *port = ntohs(name.sin_port);
+    }
+    if (listen(httpd, 5) < 0)
+        error_die("listen");
+    return(httpd);
+}
 
+int get_line(int sock, char *buf, int size)
+{
+    int i = 0;
+    char c = '\0';
+    int n;
+
+    while ((i < size - 1) && (c != '\n'))
+    {
+        n = recv(sock, &c, 1, 0);
+        /* DEBUG printf("%02X\n", c); */
+        if (n > 0)
+        {
+            if (c == '\r')
+            {
+                n = recv(sock, &c, 1, MSG_PEEK);
+                /* DEBUG printf("%02X\n", c); */
+                if ((n > 0) && (c == '\n'))
+                    recv(sock, &c, 1, 0);
+                else
+                    c = '\n';
+            }
+            buf[i] = c;
+            i++;
+        }
+        else
+            c = '\n';
+    }
+    buf[i] = '\0';
+
+    return(i);
+}
 
 int main(void)
 {
@@ -231,8 +291,8 @@ int main(void)
         client_sock = accept(server_sock,
                 (struct sockaddr *)&client_name,
                 &client_name_len);
-        if (client_sock == -1)
-            error_die("accept");
+//        if (client_sock == -1)
+//            error_die("accept");
             HandleConnect(client_sock); 
         //accept_request(&client_sock); 
        
