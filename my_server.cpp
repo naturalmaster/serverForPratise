@@ -308,8 +308,9 @@ int main(void)
         client_sock = accept(server_sock,
                 (struct sockaddr *)&client_name,
                 &client_name_len);
-//        if (client_sock == -1)
-//            error_die("accept");
+        if (client_sock == -1)
+            error_die("accept");
+	    printf("i got it ,client_sock is %d\n",client_sock);
             HandleConnect(client_sock); 
         //accept_request(&client_sock); 
        
