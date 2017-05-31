@@ -18,6 +18,7 @@
 int HandleConnect(int fd);
 int startup(u_short *port);
 int get_line(int sock,char *buf,int size);
+void error_die(const char *sc);
 int ParseReq(FILE *f,char *r);  
 int PrintHeader(FILE *f,char *r);
 int DoDir(FILE *f,char *name);
@@ -89,11 +90,12 @@ int HandleConnect(int fd){
 */
 int ParseReq(FILE *f,char *r){
 	char pathname[521] = ".";
-	pathname = strcat(pathname,r);
-	char tmp[255];
+	strcat(pathname,r);
+	char tmp[521];
 	char html[10];
-	char jpg_or_gif[10]
+	char jpg_or_gif[10];
 	
+	strcpy(tmp,pathname);
 	strncpy(html, r+(strlen(r)-5), 5); 
     html[5] = '\0';
     strncpy(jpg_or_gif,r+(strlen(r)-4),4);
@@ -101,8 +103,8 @@ int ParseReq(FILE *f,char *r){
     
     //FILE destFile = fopen(pathname,)
 	if(r[strlen(r)-1] == '/') {  			//输出目录 
-		if(access(strcat(pathname,"index.html"),0){ 	//判断是否存在index.html 
-			DoHtml(f,strcat(pathname,"index.html"));
+		if(access(strcat(tmp,"index.html"),0)){ 	//判断是否存在index.html 
+			DoHTML(f,tmp);
 			return 1;
 		}    
 		DoDir(f,pathname);
@@ -127,15 +129,15 @@ int ParseReq(FILE *f,char *r){
 
 */
 int PrintHeader(FILE *f,char *r){
-    fprintf(f,"HTTP/1.0 200 OK\n")
+    fprintf(f,"HTTP/1.0 200 OK\n");
     switch (*r)
 	{
 	case 't':
 	fprintf(f,"Content-type: text/plain\n");
 	break;
 	case 'g':
-	fprintf(f,"Content-type: image/gif\n");
-	BREAK;
+	fprintf(f,"Content-type: Emage/gif\n");
+	break;
 	case 'j':
 	fprintf(f,"Content-type: image/jpeg\n");
 	break;
@@ -174,11 +176,11 @@ int DoHTML(FILE *f,char *name){
 
 	int client = fileno(f);    //把文件指针转换为套接字，方便利用httpd.c的函数 
     resource = fopen(name, "r");
-    if (resource == NULL)
+    if (resource == NULL);
         //not_found(client);
     else
     {
-        PrintHeader(f, 'h');
+        PrintHeader(f,"h");
         fgets(buf, sizeof(buf), resource);
 	    while (!feof(resource))
 	    {
@@ -283,6 +285,14 @@ int get_line(int sock, char *buf, int size)
     return(i);
 }
 
+/**********************************************************************/
+void error_die(const char *sc)
+{
+    perror(sc);
+        exit(1);
+}
+
+
 int main(void)
 {
     int server_sock = -1;
@@ -307,5 +317,5 @@ int main(void)
 
     close(server_sock);
 
-    return(0);
+    return 0;
 }
