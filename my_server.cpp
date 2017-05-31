@@ -11,11 +11,13 @@
 //#include <pthread.h>
 #include <sys/wait.h>
 #include <stdlib.h>
-#include <io.h> 
+//#include <io.h> 
 #include <stdint.h>
 
 
 int HandleConnect(int fd);
+int startup(u_short *port);
+int get_line(int sock,char *buf,int size);
 int ParseReq(FILE *f,char *r);  
 int PrintHeader(FILE *f,char *r);
 int DoDir(FILE *f,char *name);
@@ -24,7 +26,10 @@ int DoText(FILE *f,char *name);
 int DoJpeg(FILE *f,char *name);
 int DoGif(FILE *f,char *name); 
 
-
+#define ISspace(x) isspace((int)(x))
+#define STDIN   0
+#define STDOUT  1
+#define STDERR  2
 
 char Refferer[256]; 
 /**
@@ -34,11 +39,13 @@ char Refferer[256];
 */
 int HandleConnect(int fd){
 	int client = fd;
+	int i,j;
 	FILE *file;
 	
 	char request_type[255];
 	int numchars;
 	char buf[1024];
+	char url[255];
 	char method[255];
 	char *query_string = NULL;
 		
@@ -66,7 +73,7 @@ int HandleConnect(int fd){
     }
     url[i] = '\0';
 	  
-	file = fdopen(client,r); //得到文件描述符，以只读方式打开 
+	file = fdopen(client,"r"); //得到文件描述符，以只读方式打开 
 	
 	ParseReq(file,url); 
 	fclose(file);
@@ -82,17 +89,17 @@ int HandleConnect(int fd){
 */
 int ParseReq(FILE *f,char *r){
 	char pathname[521] = ".";
-	pathname = strcat(path,r);
+	pathname = strcat(pathname,r);
 	char tmp[255];
 	char html[10];
 	char jpg_or_gif[10]
 	
 	strncpy(html, r+(strlen(r)-5), 5); 
-    string[5] = '\0';
+    html[5] = '\0';
     strncpy(jpg_or_gif,r+(strlen(r)-4),4);
-    string[4] = '\0';
+    jpg_or_gif[4] = '\0';
     
-    FILE destFile = fopen(pathname,)
+    //FILE destFile = fopen(pathname,)
 	if(r[strlen(r)-1] == '/') {  			//输出目录 
 		if(access(strcat(pathname,"index.html"),0){ 	//判断是否存在index.html 
 			DoHtml(f,strcat(pathname,"index.html"));
