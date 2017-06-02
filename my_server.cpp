@@ -80,7 +80,7 @@ int HandleConnect(int fd){
 	if(file == NULL )
 	{
 	printf("file is null\n");
-	} else printf("file is not null \n");
+	} else printf("");
 
 	ParseReq(file,url); 
 	fclose(file);
@@ -130,7 +130,7 @@ int ParseReq(FILE *f,char *r){
 		DoGif(f,pathname);
 	}else if (strcasecmp(html,".html")==0)  {  //输出html文件 
 		
-		printf("enter html\n");
+		//printf("enter html\n");
 		DoHTML(f,pathname);
 	} else{
 		DoText(f,pathname);
@@ -157,15 +157,15 @@ int PrintHeader(FILE *f,char *r){
 	send(aclient, buf, strlen(buf), 0);
 	break;
 	case 'g':
-	strcpy(buf,"Content-type: Emge/gif\r\n"); 
+	strcpy(buf,"Content-type: image/gif\r\n"); 
 	send(aclient, buf, strlen(buf), 0);
 	break;
 	case 'j':
-		strcpy(buf, "Content-type: imge/jpeg\r\n");
+		strcpy(buf, "Content-type: image/jpeg\r\n");
 	    	send(aclient, buf, strlen(buf), 0);
 	break;
 	case 'h':
-	printf("case 'h'\n");
+	//printf("case 'h'\n");
 	strcpy(buf, "Content-type: text/html\r\n");
 	    send(aclient, buf, strlen(buf), 0);
 	break;
@@ -227,15 +227,12 @@ int DoHTML(FILE *f,char *name){
     {
         PrintHeader(f,"h");
         fgets(buf, sizeof(buf), resource);
-    	printf("h 2 ere is headerbuf is :%s\n",buf);
 	    while (!feof(resource))
 	    {
 	    send(aclient, buf, strlen(buf), 0);
 	        fgets(buf, sizeof(buf), resource);
-    	printf("h 2 ere is headerbuf is :%s\n",buf);
 	    }
 
-    	printf("al  is over\n");
     }
     fclose(resource);
 }
@@ -277,7 +274,15 @@ int DoJpeg(FILE *f,char *name){
 参数 2：客户请求的文件名。
 */
 int DoGif(FILE *f,char *name){
+	int nCount;
+	char buf[1024];
+	FILE *source = fopen(name,"rb");
+	PrintHeader(f,"g");
 	
+	while((nCount =fread(buf,1,1024,source))>0){
+	send(aclient,buf,nCount,0);
+	}
+	return 0;
 }
 
 int startup(u_short *port)
@@ -410,16 +415,17 @@ int main(void)
     struct sockaddr_in client_name;
     socklen_t  client_name_len = sizeof(client_name);
     server_sock = startup(&port);
-    printf("httpd running on port %d\n", port);
+    printf("starting httpd...\n");
 
     while (1)
     {
+    	printf("wait for connection");
         client_sock = accept(server_sock,
                 (struct sockaddr *)&client_name,
                 &client_name_len);
         if (client_sock == -1)
             error_die("accept");
-	    printf("i got it ,client_sock is %d\n",client_sock);
+	    //printf("i got it ,client_sock is %d\n",client_sock);
             HandleConnect(client_sock); 
        
     }
