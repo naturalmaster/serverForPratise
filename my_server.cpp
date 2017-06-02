@@ -16,6 +16,7 @@
 
 
 int HandleConnect(int fd);
+void not_found(FILE *f);
 int startup(u_short *port);
 int get_line(int sock,char *buf,int size);
 void error_die(const char *sc);
@@ -33,13 +34,14 @@ int DoGif(FILE *f,char *name);
 #define STDERR  2
 
 char Refferer[256]; 
+int aclient;
 /**
 *客户连接处理：
 *函数名：int HandleConnect(int fd)
 *参数：客户连接文件描述字
 */
 int HandleConnect(int fd){
-	int client = fd;
+        aclient = fd;
 	int i,j;
 	FILE *file;
 	
@@ -54,7 +56,7 @@ int HandleConnect(int fd){
 	//1、获取Refferer变量并赋值给全局变量
 	//2、获取content_length字段信息
 	//1,2暂时不做，因为似乎没意义 ,获取content_type更有意义 
-	numchars = get_line(client, buf, sizeof(buf));
+	numchars = get_line(aclient, buf, sizeof(buf));
     i = 0; j = 0;
     while (!ISspace(buf[i]) && (i < sizeof(method) - 1))
     {
@@ -63,7 +65,6 @@ int HandleConnect(int fd){
     }
     j=i;
     method[i] = '\0';
-
     i = 0;
     while (ISspace(buf[j]) && (j < numchars))
         j++;
@@ -74,8 +75,13 @@ int HandleConnect(int fd){
     }
     url[i] = '\0';
 	  
-	file = fdopen(client,"r"); //得到文件描述符，以只读方式打开 
+	file = fdopen(aclient,"rt+"); //得到文件描述符，以只读方式打开 
 	
+	if(file == NULL )
+	{
+	printf("file is null\n");
+	} else printf("file is not null \n");
+
 	ParseReq(file,url); 
 	fclose(file);
 	
@@ -94,30 +100,42 @@ int ParseReq(FILE *f,char *r){
 	char tmp[521];
 	char html[10];
 	char jpg_or_gif[10];
-	
+	char buf[1024];
+	int numchars =1;
+	buf[0] = 'A';buf[1] = '\0';
+	while ((numchars > 0) && strcmp("\n", buf))  /* read & discard headers */
+	         numchars = get_line(aclient, buf, sizeof(buf));
+	//printf("finish pathname :%s\n",pathname);
 	strcpy(tmp,pathname);
+
 	strncpy(html, r+(strlen(r)-5), 5); 
     html[5] = '\0';
     strncpy(jpg_or_gif,r+(strlen(r)-4),4);
     jpg_or_gif[4] = '\0';
     
-    //FILE destFile = fopen(pathname,)
-	if(r[strlen(r)-1] == '/') {  			//输出目录 
-		if(access(strcat(tmp,"index.html"),0)){ 	//判断是否存在index.html 
+    if(access(pathname,F_OK)!=0) { //judget the file if exist
+	printf("not exist!\n");
+	not_found(f);
+    }else if(r[strlen(r)-1] == '/') {  			//输出目录 
+		if(access(strcat(tmp,"index.html"),F_OK) == 0){ 	//判断是否存在index.html 
 			DoHTML(f,tmp);
-			return 1;
-		}    
+			return 0;
+		}else {
+	
 		DoDir(f,pathname);
+		}
 	}  else if(strcasecmp(jpg_or_gif,".jpg")==0){
 		DoJpeg(f,pathname);
 	} else if (strcasecmp(jpg_or_gif,".gif")==0){
 		DoGif(f,pathname);
 	}else if (strcasecmp(html,".html")==0)  {  //输出html文件 
+		
+		printf("enter html\n");
 		DoHTML(f,pathname);
 	} else{
 		DoText(f,pathname);
 	} 
-	return 1;
+	return 0;
 }
 
 /*
@@ -129,26 +147,37 @@ int ParseReq(FILE *f,char *r){
 
 */
 int PrintHeader(FILE *f,char *r){
-    fprintf(f,"HTTP/1.0 200 OK\n");
+	char buf[1024];
+	strcpy(buf, "HTTP/1.0 200 OK\r\n");
+	send(aclient, buf, strlen(buf), 0);
     switch (*r)
 	{
 	case 't':
-	fprintf(f,"Content-type: text/plain\n");
+	strcpy(buf,"Content-type: text/plain\r\n");
+	send(aclient, buf, strlen(buf), 0);
 	break;
 	case 'g':
-	fprintf(f,"Content-type: Emage/gif\n");
+	strcpy(buf,"Content-type: Emge/gif\r\n"); 
+	send(aclient, buf, strlen(buf), 0);
 	break;
 	case 'j':
-	fprintf(f,"Content-type: image/jpeg\n");
+		strcpy(buf, "Content-type: imge/jpeg\r\n");
+	    	send(aclient, buf, strlen(buf), 0);
 	break;
 	case 'h':
-	fprintf(f,"Content-type: text/html\n");
+	printf("case 'h'\n");
+	strcpy(buf, "Content-type: text/html\r\n");
+	    send(aclient, buf, strlen(buf), 0);
 	break;
 	}
 	//发送服务器信息：
-	fprintf(f,"Server: AMRLinux-httpd 0.2.4\n");
+	strcpy(buf, "Server: AMRLinux-httpd 0.2.4\r\n");
+	send(aclient, buf, strlen(buf), 0);
 	//发送文件过期为永不过期：
-	fprintf(f,"Expires: 0\n");
+	strcpy(buf, "Expires: 0\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	strcpy(buf, "\r\n");
+	send(aclient, buf, strlen(buf), 0);
 }
 
 /*
@@ -159,7 +188,23 @@ int PrintHeader(FILE *f,char *r){
 参数 2：目录名，表示客户请求的目录信息。
 */
 int DoDir(FILE *f,char *name){
-	
+	char buf[1024];
+	char buf2[1024];
+	system("ls -lh --full-time | cut -c 23-  |awk '{print $1\"           \t\"$2\"     \t\"$5}'> ./tmpfile");
+	PrintHeader(f,"h");
+	FILE *resource = fopen("./tmpfile","r");
+	sprintf(buf2,"<h3>Server file directory</h3><i>size(byte) &nbsp  date &nbsp&nbsp&nbsp &nbsp  &nbsp  &nbsp  filename<i><br>");
+	//send(aclienti,buf2,strlen(buf2),0);
+
+	fgets(buf, sizeof(buf), resource);
+	strcat(buf,buf2);
+	while (!feof(resource))
+	{
+		strcat(buf,"<br>");
+		send(aclient,buf,strlen(buf),0);	
+		fgets(buf, sizeof(buf), resource);
+	}
+	system("rm -f ./tmpfile");
 }
 
 /*发送 HTML 文件内容：
@@ -173,20 +218,24 @@ int DoHTML(FILE *f,char *name){
 	FILE *resource = NULL;
     char buf[1024];
     buf[0] = 'A'; buf[1] = '\0';
-
-	int client = fileno(f);    //把文件指针转换为套接字，方便利用httpd.c的函数 
     resource = fopen(name, "r");
-    if (resource == NULL);
+    if (resource == NULL){
+	printf("DoHTML():ther is no file exist");
+    }
         //not_found(client);
     else
     {
         PrintHeader(f,"h");
         fgets(buf, sizeof(buf), resource);
+    	printf("h 2 ere is headerbuf is :%s\n",buf);
 	    while (!feof(resource))
 	    {
-	    	fprintf(f,buf);
+	    send(aclient, buf, strlen(buf), 0);
 	        fgets(buf, sizeof(buf), resource);
+    	printf("h 2 ere is headerbuf is :%s\n",buf);
 	    }
+
+    	printf("al  is over\n");
     }
     fclose(resource);
 }
@@ -198,7 +247,7 @@ int DoHTML(FILE *f,char *name){
 参数 2：客户请求的文件名。
 */
 int DoText(FILE *f,char *name){
-	
+	DoHTML(f,name);	
 }
 
 /*
@@ -209,7 +258,16 @@ int DoText(FILE *f,char *name){
 */
 
 int DoJpeg(FILE *f,char *name){
-	
+	int nCount;
+	char buf[1024];
+	FILE * source = fopen(name,"rb");
+	PrintHeader(f,"j");
+	while((nCount =fread(buf,1,1024,source))>0){
+
+		send(aclient,buf,nCount,0);
+	}
+	return 0;
+
 }
 
 /*
@@ -235,6 +293,8 @@ int startup(u_short *port)
     name.sin_family = AF_INET;
     name.sin_port = htons(*port);
     name.sin_addr.s_addr = htonl(INADDR_ANY);
+    if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)  
+    if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)  
     if ((setsockopt(httpd, SOL_SOCKET, SO_REUSEADDR, &on, sizeof(on))) < 0)  
     {  
         error_die("setsockopt failed");
@@ -292,11 +352,60 @@ void error_die(const char *sc)
         exit(1);
 }
 
+void not_found(FILE *f){
+	char buf[1024];
+	sprintf(buf, "HTTP/1.0 404 NOT FOUND\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "Server: AMRLinux-httpd 0.2.4\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "Content-Type: text/html\r\n");
+	send(aclient, buf, strlen(buf), 0);
+        sprintf(buf, "\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "<HTML><TITLE>Not Found</TITLE>\r\n");
+ 	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "<BODY><P>The server could not fulfill\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "your request because the resource specified\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "is unavailable or nonexistent.\r\n");
+	send(aclient, buf, strlen(buf), 0);
+	sprintf(buf, "</BODY></HTML>\r\n");
+	send(aclient, buf, strlen(buf), 0);
+}
+void no2t_found(FILE *f)
+{
+	char buf[1024];
+
+	int client = fileno(f);
+
+	sprintf(buf, "HTTP/1.0 404 NOT FOUND\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "Server: AMRLinux-httpd 0.2.4\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "Content-Type: text/html\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "<HTML><TITLE>Not Found</TITLE>\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "<BODY><P>The server could not fulfill\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "your request because the resource specified\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "  sssis unavailable or nonexistent.\r\n");
+	send(client, buf, strlen(buf), 0);
+	sprintf(buf, "</BODY></HTML>\r\n");
+	send(client, buf, strlen(buf), 0);
+
+	
+}
+
 
 int main(void)
 {
     int server_sock = -1;
-    u_short port = 4000;
+    u_short port = 4002;
     int client_sock = -1;
     struct sockaddr_in client_name;
     socklen_t  client_name_len = sizeof(client_name);
@@ -312,11 +421,10 @@ int main(void)
             error_die("accept");
 	    printf("i got it ,client_sock is %d\n",client_sock);
             HandleConnect(client_sock); 
-        //accept_request(&client_sock); 
        
     }
 
     close(server_sock);
 
     return 0;
-}
+    }
